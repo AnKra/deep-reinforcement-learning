@@ -3,6 +3,7 @@ import random
 from collections import namedtuple, deque
 
 from model import QNetwork
+from cnn_model import CNNNetwork
 
 import torch
 import torch.nn.functional as F
@@ -14,7 +15,7 @@ class Agent():
     """Interacts with and learns from the environment."""
 
     def __init__(self, state_size, action_size, seed, buffer_size=int(1e5), batch_size=64, 
-                 gamma=0.99, tau=1e-3, lr=5e-4, update_every=4):
+                 gamma=0.99, tau=1e-3, lr=5e-4, update_every=4, use_cnn=False):
         """Initialize an Agent object.
         
         Params
@@ -36,10 +37,16 @@ class Agent():
         self.batch_size = batch_size
         self.gamma = gamma
         self.tau = tau
+        self.use_cnn = use_cnn
 
         # Q-Network
-        self.qnetwork_local = QNetwork(state_size, action_size, seed).to(device)
-        self.qnetwork_target = QNetwork(state_size, action_size, seed).to(device)
+        if use_cnn:
+            self.qnetwork_local = CNNNetwork(state_size, action_size, seed).to(device)
+            self.qnetwork_target = CNNNetwork(state_size, action_size, seed).to(device)
+        else:
+            self.qnetwork_local = QNetwork(state_size, action_size, seed).to(device)
+            self.qnetwork_target = QNetwork(state_size, action_size, seed).to(device)
+            
         self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr)
 
         # Replay memory
@@ -67,7 +74,7 @@ class Agent():
             state (array_like): current state
             eps (float): epsilon, for epsilon-greedy action selection
         """
-        state = torch.from_numpy(state).float().unsqueeze(0).to(device)
+        state = torch.from_numpy(state).float().to(device)
         self.qnetwork_local.eval()
         with torch.no_grad():
             action_values = self.qnetwork_local(state)
