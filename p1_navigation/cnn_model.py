@@ -69,7 +69,7 @@ class CNNNetwork(nn.Module):
             print(x.shape)
         
         #x = self.dropout(x)
-        x = F.softmax(self.fc2(x), 1)
+        x = self.fc2(x)
         
         if do_print:
             print(x.shape)
