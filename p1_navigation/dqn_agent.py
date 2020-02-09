@@ -15,7 +15,8 @@ class Agent():
     """Interacts with and learns from the environment."""
 
     def __init__(self, state_size, action_size, seed, buffer_size=int(1e5), batch_size=64, 
-                 gamma=0.99, tau=1e-3, lr=5e-4, update_every=4, gradient_momentum=0, use_cnn=False):
+                 gamma=0.99, tau=1e-3, lr=5e-4, update_every=4, weight_decay=0, gradient_momentum=0, 
+                 use_cnn=False):
         """Initialize an Agent object.
         
         Params
@@ -47,10 +48,11 @@ class Agent():
             self.qnetwork_local = QNetwork(state_size, action_size, seed).to(device)
             self.qnetwork_target = QNetwork(state_size, action_size, seed).to(device)
         
-        if use_cnn:
-            self.optimizer = optim.RMSprop(self.qnetwork_local.parameters(), lr, gradient_momentum)
-        else:
-            self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr)
+        #if use_cnn:
+        #    self.optimizer = optim.RMSprop(self.qnetwork_local.parameters(), lr, weight_decay=weight_decay, 
+        #                                   momentum=gradient_momentum)
+        #else:
+        self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr)
 
         # Replay memory
         self.memory = ReplayBuffer(action_size, buffer_size, batch_size, seed)
