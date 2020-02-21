@@ -16,7 +16,7 @@ class Agent():
 
     def __init__(self, state_size, action_size, seed, buffer_size=int(1e5), batch_size=64, 
                  gamma=0.99, tau=1e-3, lr=5e-4, update_every=4, weight_decay=0, gradient_momentum=0, 
-                 use_cnn=False):
+                 scheduler_step_size=3000, scheduler_gamma=0.9, use_cnn=False):
         """Initialize an Agent object.
         
         Params
@@ -48,14 +48,15 @@ class Agent():
             self.qnetwork_local = QNetwork(state_size, action_size, seed).to(device)
             self.qnetwork_target = QNetwork(state_size, action_size, seed).to(device)
         
-        #if use_cnn:
-        #    self.optimizer = optim.RMSprop(self.qnetwork_local.parameters(), lr, weight_decay=weight_decay, 
-        #                                   momentum=gradient_momentum)
-        #else:
-        self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr)
+        if use_cnn:
+            self.optimizer = optim.RMSprop(self.qnetwork_local.parameters(), lr, weight_decay=weight_decay, 
+                                           momentum=gradient_momentum)
+            self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=scheduler_step_size, gamma=scheduler_gamma)
+        else:
+            self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr)
 
         # Replay memory
-        self.memory = ReplayBuffer(action_size, buffer_size, batch_size, seed)
+        self.memory = StackedReplayBuffer(action_size, buffer_size, batch_size, seed)
         # Initialize time step (for updating every 'update_every' steps)
         self.t_step = 0
     
@@ -114,6 +115,7 @@ class Agent():
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
+        self.scheduler.step()
 
         # ------------------- update target network ------------------- #
         self.soft_update(self.qnetwork_local, self.qnetwork_target)                     
@@ -131,6 +133,88 @@ class Agent():
             target_param.data.copy_(self.tau * local_param.data + (1.0 - self.tau) * target_param.data)
 
 
+class StackedReplayBuffer:
+    """Fixed-size buffer to store experience tuples."""
+
+    def __init__(self, action_size, buffer_size, batch_size, seed):
+        """Initialize a ReplayBuffer object.
+
+        Params
+        ======
+            action_size (int): dimension of each action
+            buffer_size (int): maximum size of buffer
+            batch_size (int): size of each training batch
+            seed (int): random seed
+        """
+        self.action_size = action_size
+        self.memory = deque(maxlen=buffer_size)  
+        self.batch_size = batch_size
+        self.stacked_experience = namedtuple("StackedExperiences", field_names=["states", "actions", "rewards", "next_states", "dones"])
+        self.seed = random.seed(seed)
+        self.states = []
+        self.actions = []
+        self.rewards = []
+        self.next_states = []
+        self.dones = []
+    
+    def add(self, state, action, reward, next_state, done):
+        """Add a new experience to memory."""
+        self.states.append(state)
+        self.actions.append(action)
+        self.rewards.append(reward)
+        self.next_states.append(next_state)
+        self.dones.append(done)
+        if len(self.actions) > 4:
+            self.states.pop(0)
+            self.actions.pop(0)
+            self.rewards.pop(0)
+            self.next_states.pop(0)
+            self.dones.pop(0)
+        if len(self.actions) == 4:
+            stacked_e = self.stacked_experience(self.states.copy(), self.actions.copy(), self.rewards.copy(), self.next_states.copy(), self.dones.copy())
+            self.memory.append(stacked_e)
+    
+    def sample(self):
+        """Randomly sample a batch of experiences from memory."""
+        experiences = random.sample(self.memory, k=self.batch_size)
+
+        list_of_states = []
+        for e in experiences:
+            for x in e.states:
+                list_of_states.append(x)
+        states = torch.from_numpy(np.vstack(list_of_states)).float().to(device)
+        
+        list_of_actions = []
+        for e in experiences:
+            for x in e.actions:
+                list_of_actions.append(x)
+        actions = torch.from_numpy(np.vstack(list_of_actions)).long().to(device)
+        
+        list_of_rewards = []
+        for e in experiences:
+            for x in e.rewards:
+                list_of_rewards.append(x)
+        rewards = torch.from_numpy(np.vstack(list_of_rewards)).float().to(device)
+        
+        list_of_next_states = []
+        for e in experiences:
+            for x in e.next_states:
+                list_of_next_states.append(x)
+        next_states = torch.from_numpy(np.vstack(list_of_next_states)).float().to(device)
+        
+        list_of_dones = []
+        for e in experiences:
+            for x in e.dones:
+                list_of_dones.append(x)
+        dones = torch.from_numpy(np.vstack(list_of_dones).astype(np.uint8)).float().to(device)
+        
+        return (states, actions, rewards, next_states, dones)
+
+    def __len__(self):
+        """Return the current size of internal memory."""
+        return len(self.memory)
+
+    
 class ReplayBuffer:
     """Fixed-size buffer to store experience tuples."""
 
