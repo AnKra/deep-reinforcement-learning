@@ -20,7 +20,7 @@ class CNNNetwork(nn.Module):
         super(CNNNetwork, self).__init__()
         self.seed = torch.manual_seed(seed)
         
-        self.conv1 = nn.Conv2d(3, 8, kernel_size=4, stride=2)                           # 84x84 --> 40x40
+        self.conv1 = nn.Conv2d(1, 8, kernel_size=4, stride=2)                           # 84x84 --> 40x40
         self.conv2 = nn.Conv2d(8, 16, kernel_size=4, stride=2)                          # 40x40 --> 18x18
         self.conv3 = nn.Conv2d(16, self.last_conv_layer_size, kernel_size=4, stride=2)  # 18x18 --> 7x7
         
