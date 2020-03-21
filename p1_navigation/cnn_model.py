@@ -1,12 +1,17 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+def hidden_init(layer):
+    fan_in = layer.weight.data.size()[0]
+    lim = 1. / np.sqrt(fan_in)
+    return (-lim, lim)
 
 class CNNNetwork(nn.Module):
     """Actor (Policy) Model."""
 
     last_conv_layer_size = 16
-    #conv_output_size = last_conv_layer_size * 7 * 7
     conv_output_size = last_conv_layer_size * 7 * 7
     
     def __init__(self, state_size, action_size, seed):
@@ -20,7 +25,7 @@ class CNNNetwork(nn.Module):
         super(CNNNetwork, self).__init__()
         self.seed = torch.manual_seed(seed)
         
-        self.conv1 = nn.Conv2d(1, 8, kernel_size=4, stride=2)                           # 84x84 --> 40x40
+        self.conv1 = nn.Conv2d(1, 8, kernel_size=(2, 4), stride=(1, 2))                 # 42x84 --> 40x40
         self.conv2 = nn.Conv2d(8, 16, kernel_size=4, stride=2)                          # 40x40 --> 18x18
         self.conv3 = nn.Conv2d(16, self.last_conv_layer_size, kernel_size=4, stride=2)  # 18x18 --> 7x7
         
@@ -33,8 +38,14 @@ class CNNNetwork(nn.Module):
         self.fc1 = nn.Linear(self.conv_output_size, 512)
         self.fc2 = nn.Linear(512, action_size)
         
+        self.reset_parameters()
+        
         self.dropout = nn.Dropout(p=0.4)
         
+    def reset_parameters(self):
+        self.fc1.weight.data.uniform_(*hidden_init(self.fc1))
+        self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
+
     def forward(self, x):
         """Build a network that maps state -> action values."""
         x = x.permute(0, 3, 1, 2)
@@ -70,13 +81,13 @@ class CNNNetwork(nn.Module):
         if do_print:
             print(x.shape)
         
-        x = self.dropout(x)
+        #x = self.dropout(x)
         x = F.relu(self.fc1(x))
         
         if do_print:
             print(x.shape)
         
-        x = self.dropout(x)
+        #x = self.dropout(x)
         x = self.fc2(x)
         
         if do_print:
@@ -84,67 +95,3 @@ class CNNNetwork(nn.Module):
             print()
         
         return x
-
-# without maxpool
-# last_conv_layer_size = 64
-# last_conv_layer_size * 7 * 7
-# torch.Size([1, 3, 84, 84])
-# torch.Size([1, 32, 20, 20])
-# torch.Size([1, 64, 9, 9])
-# torch.Size([1, 64, 7, 7])
-# torch.Size([1, 3136])
-# torch.Size([1, 512])
-# torch.Size([1, 4])
-
-# without maxpool
-# last_conv_layer_size = 64
-# last_conv_layer_size * 7 * 7
-# torch.Size([1, 3, 84, 84])
-# torch.Size([1, 32, 20, 20])
-# torch.Size([1, 64, 9, 9])
-# torch.Size([1, 64, 7, 7])
-# torch.Size([1, 3136])
-# torch.Size([1, 64])
-# torch.Size([1, 4])
-    
-# with maxpool
-# last_conv_layer_size = 32
-# conv_output_size = last_conv_layer_size * 4 * 4
-# torch.Size([1, 3, 84, 84])
-# torch.Size([1, 16, 21, 21])
-# torch.Size([1, 32, 4, 4])
-# torch.Size([1, 512])
-# torch.Size([1, 64])
-# torch.Size([1, 4])
-
-# without maxpool
-# last_conv_layer_size = 32
-# conv_output_size = last_conv_layer_size * 20 * 20
-# torch.Size([1, 3, 84, 84])
-# torch.Size([1, 16, 42, 42])
-# torch.Size([1, 32, 20, 20])
-# torch.Size([1, 12800])
-# torch.Size([1, 64])
-# torch.Size([1, 4])
-
-# without maxpool
-# last_conv_layer_size = 32
-# conv_output_size = last_conv_layer_size * 9 * 9
-# torch.Size([1, 3, 84, 84])
-# torch.Size([1, 32, 20, 20])
-# torch.Size([1, 32, 9, 9])
-# torch.Size([1, 2592])
-# torch.Size([1, 9])
-# torch.Size([1, 4])
-
-# with maxpool
-# last_conv_layer_size = 32
-# conv_output_size = last_conv_layer_size * 2 * 2
-# torch.Size([1, 3, 84, 84])
-# torch.Size([1, 32, 10, 10])
-# torch.Size([1, 32, 2, 2])
-# torch.Size([1, 128])
-# torch.Size([1, 9])
-# torch.Size([1, 4])
-
-
